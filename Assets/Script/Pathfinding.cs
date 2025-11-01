@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 public class Pathfinding : MonoBehaviour
 {
     private List<Vector2Int> path = new List<Vector2Int>();
@@ -14,22 +15,91 @@ public class Pathfinding : MonoBehaviour
         new Vector2Int(0, 1),
         new Vector2Int(0, -1)
     };
-    private int[,] grid = new int[,]
-    {
-        { 0, 1, 0, 0, 0 },
-        { 0, 1, 0, 1, 0 },
-        { 0, 0, 0, 1, 0 },
-        { 0, 1, 1, 1, 0 },
-        { 0, 0, 0, 0, 0 }
-    };
+
+    private int[,] grid;
+
+    [Header("Grid Settings")]
+    public int width = 10;
+    public int height = 10;
+    [Range(0f, 1f)] public float obstacleProbability = 0.2f;
+
+    private bool selectingStart = true;
 
     private void Start()
     {
+        GenerateRandomGrid(width, height, obstacleProbability);
         FindPath(start, goal);
+    }
+
+    private void Update()
+    {
+        if (Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            Ray ray = Camera.main.ScreenPointToRay(Mouse.current.position.ReadValue());
+            if (Physics.Raycast(ray, out RaycastHit hit))
+            {
+                Vector2Int clickedCell = new Vector2Int(
+                    Mathf.FloorToInt(hit.point.x),
+                    Mathf.FloorToInt(hit.point.z)
+                );
+
+                if (!IsInBounds(clickedCell)) return;
+                if (grid[clickedCell.y, clickedCell.x] == 1) return;
+
+                if (selectingStart)
+                {
+                    start = clickedCell;
+                    Debug.Log("Start set to: " + start);
+                }
+                else
+                {
+                    goal = clickedCell;
+                    Debug.Log("Goal set to: " + goal);
+                    FindPath(start, goal);
+                }
+
+                selectingStart = !selectingStart;
+            }
+        }
+        if (Mouse.current.rightButton.wasPressedThisFrame) 
+        {
+            AddObstacle(new Vector2Int(Random.Range(0, width), Random.Range(0, height)));
+
+        }
+    }
+
+    public void GenerateRandomGrid(int width, int height, float obstacleProbability)
+    {
+        grid = new int[height, width];
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                grid[y, x] = (Random.value < obstacleProbability) ? 1 : 0;
+            }
+        }
+
+        grid[start.y, start.x] = 0;
+        grid[goal.y, goal.x] = 0;
+    }
+
+    public void AddObstacle(Vector2Int position)
+    {
+        if (IsInBounds(position))
+        {
+            grid[position.y, position.x] = 1;
+            Debug.Log("Obstacle added at " + position);
+        }
+        else
+        {
+            Debug.LogWarning("Position " + position + " is out of grid bounds");
+        }
     }
 
     private void OnDrawGizmos()
     {
+        if (grid == null) return;
+
         float cellSize = 1f;
         // Draw grid cells
         for (int y = 0; y < grid.GetLength(0); y++)
@@ -65,6 +135,8 @@ public class Pathfinding : MonoBehaviour
     }
     private void FindPath(Vector2Int start, Vector2Int goal)
     {
+        path.Clear();
+
         Queue<Vector2Int> frontier = new Queue<Vector2Int>();
         frontier.Enqueue(start);
         Dictionary<Vector2Int, Vector2Int> cameFrom = new Dictionary<Vector2Int,
