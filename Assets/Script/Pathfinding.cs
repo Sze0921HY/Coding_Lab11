@@ -15,6 +15,7 @@ public class Pathfinding : MonoBehaviour
     };
 
     private int[,] grid;
+    private int[,] terrainCost;
 
     [Header("Grid Settings")]
     public int width = 10;
@@ -69,16 +70,21 @@ public class Pathfinding : MonoBehaviour
     public void GenerateRandomGrid(int width, int height, float obstacleProbability)
     {
         grid = new int[height, width];
+        terrainCost = new int[height, width];
+
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
             {
                 grid[y, x] = (Random.value < obstacleProbability) ? 1 : 0;
+                terrainCost[y, x] = (grid[y, x] == 1) ? int.MaxValue : Random.Range(1, 6);
             }
         }
 
         grid[start.y, start.x] = 0;
         grid[goal.y, goal.x] = 0;
+        terrainCost[start.y, start.x] = 1;
+        terrainCost[goal.y, goal.x] = 1;
     }
 
     public void AddObstacle(Vector2Int position)
@@ -113,6 +119,7 @@ public class Pathfinding : MonoBehaviour
         // Draw path
         foreach (var step in path)
         {
+            Vector3 cellPosition = new Vector3(step.x, 0, step.y);
             Gizmos.color = Color.blue;
             Gizmos.DrawCube(cellPosition, new Vector3(1f, 0.1f, 1f));
         }
@@ -156,7 +163,8 @@ public class Pathfinding : MonoBehaviour
             {
                 Vector2Int next = current + direction;
                 if (!IsInBounds(next) || grid[next.y, next.x] == 1) continue;
-                float newCost = costSoFar[current] + 1; // all moves cost 1
+                int moveCost = terrainCost[next.y, next.x];
+                float newCost = costSoFar[current] + moveCost;
 
                 if (!costSoFar.ContainsKey(next) || newCost < costSoFar[next])
                 {
@@ -194,7 +202,7 @@ public class Pathfinding : MonoBehaviour
             totalCost = path.Count - 1;
         }
 
-        Debug.Log("Path found! Total cost: " + totalCost);
+        Debug.Log("Path found! Total cost: " + totalCost + " Total steps: " + (path.Count - 1));
     }
 
     private float Heuristic(Vector2Int a, Vector2Int b)
