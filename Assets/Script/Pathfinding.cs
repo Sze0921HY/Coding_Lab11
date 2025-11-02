@@ -6,8 +6,6 @@ public class Pathfinding : MonoBehaviour
     private List<Vector2Int> path = new List<Vector2Int>();
     private Vector2Int start = new Vector2Int(0, 1);
     private Vector2Int goal = new Vector2Int(4, 4);
-    private Vector2Int next;
-    private Vector2Int current;
     private Vector2Int[] directions = new Vector2Int[]
     {
         new Vector2Int(1, 0),
@@ -115,56 +113,67 @@ public class Pathfinding : MonoBehaviour
         // Draw path
         foreach (var step in path)
         {
-            Vector3 cellPosition = new Vector3(step.x * cellSize, 0, step.y *
-            cellSize);
             Gizmos.color = Color.blue;
-            Gizmos.DrawCube(cellPosition, new Vector3(cellSize, 0.1f, cellSize));
+            Gizmos.DrawCube(cellPosition, new Vector3(1f, 0.1f, 1f));
         }
         // Draw start and goal
         Gizmos.color = Color.green;
-        Gizmos.DrawCube(new Vector3(start.x * cellSize, 0, start.y * cellSize), new
-        Vector3(cellSize, 0.1f, cellSize));
+        Gizmos.DrawCube(new Vector3(start.x, 0, start.y), new
+        Vector3(1f, 0.1f, 1f));
         Gizmos.color = Color.red;
-        Gizmos.DrawCube(new Vector3(goal.x * cellSize, 0, goal.y * cellSize), new
-        Vector3(cellSize, 0.1f, cellSize));
+        Gizmos.DrawCube(new Vector3(goal.x, 0, goal.y), new
+        Vector3(1f, 0.1f, 1f));
     }
+
     private bool IsInBounds(Vector2Int point)
     {
         return point.x >= 0 && point.x < grid.GetLength(1) && point.y >= 0 &&
         point.y < grid.GetLength(0);
     }
+
     private void FindPath(Vector2Int start, Vector2Int goal)
     {
         path.Clear();
 
-        Queue<Vector2Int> frontier = new Queue<Vector2Int>();
-        frontier.Enqueue(start);
-        Dictionary<Vector2Int, Vector2Int> cameFrom = new Dictionary<Vector2Int,
-        Vector2Int>();
+        var frontier = new PriorityQueue<Vector2Int>();
+        frontier.Enqueue(start, 0);
+        var cameFrom = new Dictionary<Vector2Int, Vector2Int>();
+        var costSoFar = new Dictionary<Vector2Int, float>();
+
         cameFrom[start] = start;
+        costSoFar[start] = 0;
+
         while (frontier.Count > 0)
         {
-            current = frontier.Dequeue();
+            Vector2Int current = frontier.Dequeue();
+            
             if (current == goal)
             {
                 break;
             }
+
             foreach (Vector2Int direction in directions)
             {
-                next = current + direction;
-                if (IsInBounds(next) && grid[next.y, next.x] == 0 && !
-                cameFrom.ContainsKey(next))
+                Vector2Int next = current + direction;
+                if (!IsInBounds(next) || grid[next.y, next.x] == 1) continue;
+                float newCost = costSoFar[current] + 1; // all moves cost 1
+
+                if (!costSoFar.ContainsKey(next) || newCost < costSoFar[next])
                 {
-                    frontier.Enqueue(next);
+                    costSoFar[next] = newCost;
+                    float priority = newCost + Heuristic(next, goal);
+                    frontier.Enqueue(next, priority);
                     cameFrom[next] = current;
                 }
             }
         }
+        
         if (!cameFrom.ContainsKey(goal))
         {
             Debug.Log("Path not found.");
             return;
         }
+        
         // Trace path from goal to start
         Vector2Int step = goal;
         while (step != start)
@@ -174,5 +183,54 @@ public class Pathfinding : MonoBehaviour
         }
         path.Add(start);
         path.Reverse();
+
+        float totalCost;
+        if (costSoFar.ContainsKey(goal))
+        {
+            totalCost = costSoFar[goal];
+        }
+        else
+        {
+            totalCost = path.Count - 1;
+        }
+
+        Debug.Log("Path found! Total cost: " + totalCost);
     }
+
+    private float Heuristic(Vector2Int a, Vector2Int b)
+    {
+        return Mathf.Abs(a.x - b.x) + Mathf.Abs(a.y - b.y);
+    }
+
+    public class PriorityQueue<T>
+    {
+        private List<(T item, float priority)> elements = new List<(T, float)>();
+
+        public int Count => elements.Count;
+
+        public void Enqueue(T item, float priority)
+        {
+            elements.Add((item, priority));
+        }
+
+        public T Dequeue()
+        {
+            int bestIndex = 0;
+            float bestPriority = elements[0].priority;
+
+            for (int i = 1; i < elements.Count; i++)
+            {
+                if (elements[i].priority < bestPriority)
+                {
+                    bestPriority = elements[i].priority;
+                    bestIndex = i;
+                }
+            }
+
+            T bestItem = elements[bestIndex].item;
+            elements.RemoveAt(bestIndex);
+            return bestItem;
+        }
+    }
+
 }
