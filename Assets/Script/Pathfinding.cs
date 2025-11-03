@@ -42,8 +42,16 @@ public class Pathfinding : MonoBehaviour
                     Mathf.FloorToInt(hit.point.z)
                 );
 
-                if (!IsInBounds(clickedCell)) return;
-                if (grid[clickedCell.y, clickedCell.x] == 1) return;
+                if (!IsInBounds(clickedCell))
+                {
+                    Debug.LogWarning("it is not range");
+                    return;
+                }
+
+                if (grid[clickedCell.y, clickedCell.x] == 1)
+                {
+                    Debug.LogWarning("You clciked an obstacle! try again"); return;
+                }
 
                 if (selectingStart)
                 {
